@@ -150,11 +150,26 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 		return
 	}
 
-	err = configureInterface(conf, &guid)
+	foundDefault, err := configureInterface(conf, &guid)
 	if err != nil {
 		logger.Error.Println("Unable to set interface addresses, routes, DNS, or IP settings:", err)
 		exitCode = ERROR_NETWORK_BUSY
 		return
+	}
+	if foundDefault {
+		disabledInterfaces, err := disableDefaultRoutesExcept(&guid)
+		if err != nil {
+			logger.Error.Println("Unable disable default routes on other interfaces:", err)
+			exitCode = ERROR_NETWORK_BUSY
+			return
+		}
+		defer func() {
+			err = reenableDefaultRoutes(disabledInterfaces)
+			if err != nil {
+				logger.Error.Println("Something went wrong when trying to reenable default routes of other interfaces during shutdown:", err)
+				exitCode = ERROR_NETWORK_BUSY
+			}
+		}()
 	}
 
 	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop}

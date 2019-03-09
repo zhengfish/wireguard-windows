@@ -143,10 +143,10 @@ func monitorDefaultRoutes(device *device.Device, autoMTU bool, guid *windows.GUI
 	return cb, nil
 }
 
-func configureInterface(conf *conf.Config, guid *windows.GUID) error {
+func configureInterface(conf *conf.Config, guid *windows.GUID) (hasDefaultRoute bool, err error) {
 	iface, err := winipcfg.InterfaceFromGUID(guid)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	routeCount := len(conf.Interface.Addresses)
@@ -183,7 +183,7 @@ func configureInterface(conf *conf.Config, guid *windows.GUID) error {
 	for _, peer := range conf.Peers {
 		for _, allowedip := range peer.AllowedIPs {
 			if (allowedip.Bits() == 32 && firstGateway4 == nil) || (allowedip.Bits() == 128 && firstGateway6 == nil) {
-				return errors.New("Due to a Windows limitation, one cannot have interface routes without an interface address")
+				return false, errors.New("Due to a Windows limitation, one cannot have interface routes without an interface address")
 			}
 			routes[routeCount] = winipcfg.RouteData{
 				Destination: allowedip.IPNet(),
@@ -206,7 +206,7 @@ func configureInterface(conf *conf.Config, guid *windows.GUID) error {
 
 	err = iface.SetAddresses(addresses)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	deduplicatedRoutes := make([]*winipcfg.RouteData, routeCount)
@@ -230,17 +230,17 @@ func configureInterface(conf *conf.Config, guid *windows.GUID) error {
 
 	err = iface.SetRoutes(deduplicatedRoutes[:routeCount])
 	if err != nil {
-		return nil
+		return false, nil
 	}
 
 	err = iface.SetDNS(conf.Interface.Dns)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	ipif, err := iface.GetIpInterface(winipcfg.AF_INET)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if foundDefault4 {
 		ipif.UseAutomaticMetric = false
@@ -251,12 +251,12 @@ func configureInterface(conf *conf.Config, guid *windows.GUID) error {
 	}
 	err = ipif.Set()
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	ipif, err = iface.GetIpInterface(winipcfg.AF_INET6)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if foundDefault6 {
 		ipif.UseAutomaticMetric = false
@@ -269,8 +269,65 @@ func configureInterface(conf *conf.Config, guid *windows.GUID) error {
 	ipif.RouterDiscoveryBehavior = winipcfg.RouterDiscoveryDisabled
 	err = ipif.Set()
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return foundDefault4 || foundDefault6, nil
+}
+
+type ifaceFamily struct {
+	family winipcfg.AddressFamily
+	luid uint64
+}
+
+func reenableDefaultRoutes(disabledInterfaces []ifaceFamily) (retErr error) {
+	for _, ifacefam := range disabledInterfaces {
+		iface, err := winipcfg.GetIpInterface(ifacefam.luid, ifacefam.family)
+		if err != nil {
+			if retErr == nil {
+				retErr = err
+			}
+			continue
+		}
+		iface.DisableDefaultRoutes = true
+		err = iface.Set()
+		if err != nil && retErr == nil {
+			retErr = err
+		}
+	}
+	return
+}
+
+func disableDefaultRoutesExcept(guid *windows.GUID) (disabledInterfaces []ifaceFamily, err error) {
+	defer func() {
+		if err == nil || disabledInterfaces == nil {
+			return
+		}
+		reenableDefaultRoutes(disabledInterfaces)
+		disabledInterfaces = nil
+	}()
+	exceptLuid, err := winipcfg.InterfaceGuidToLuid(guid)
+	if err != nil {
+		return
+	}
+	interfaces4, err := winipcfg.GetIpInterfaces(winipcfg.AF_INET)
+	if err != nil {
+		return
+	}
+	interfaces6, err := winipcfg.GetIpInterfaces(winipcfg.AF_INET6)
+	if err != nil {
+		return
+	}
+	for _, iface := range append(interfaces4, interfaces6...) {
+		if iface.DisableDefaultRoutes || iface.InterfaceLuid == exceptLuid {
+			continue
+		}
+		iface.DisableDefaultRoutes = true
+		err = iface.Set()
+		if err != nil {
+			return
+		}
+		disabledInterfaces = append(disabledInterfaces, ifaceFamily{iface.Family, iface.InterfaceLuid})
+	}
+	return
 }
