@@ -45,18 +45,22 @@ func nag() {
 }
 
 func RunUI() {
-	icon, _ := walk.NewIconFromResourceId(1)
+	err := loadIcons()
+	if err != nil {
+		walk.MsgBox(nil, "Unable to load icons", err.Error(), walk.MsgBoxIconError)
+		return
+	}
 
 	mw, _ := walk.NewMainWindowWithName("WireGuard")
 	tray, _ := walk.NewNotifyIcon(mw)
 	defer tray.Dispose()
-	tray.SetIcon(icon)
+	tray.SetIcon(logoIcon)
 	tray.SetToolTip("WireGuard: Deactivated")
 	tray.SetVisible(true)
 
 	mw.SetSize(walk.Size{900, 800})
 	mw.SetLayout(walk.NewVBoxLayout())
-	mw.SetIcon(icon)
+	mw.SetIcon(logoIcon)
 	mw.Closing().Attach(func(canceled *bool, reason walk.CloseReason) {
 		*canceled = true
 		mw.Hide()
@@ -210,12 +214,14 @@ func RunUI() {
 			pb.SetText("Starting...")
 			pb.SetEnabled(false)
 			tray.SetToolTip("WireGuard: Activating...")
+			tray.SetIcon(connectingLogoIcon)
 		case service.TunnelStarted:
 			showRunningView(true)
 			se.SetEnabled(false)
 			pb.SetText("Stop")
 			pb.SetEnabled(true)
 			tray.SetToolTip("WireGuard: Activated")
+			tray.SetIcon(connectedLogoIcon)
 			if showNotifications {
 				//TODO: ShowCustom with right icon
 				tray.ShowInfo("WireGuard Activated", fmt.Sprintf("The %s tunnel has been activated.", tunnel.Name))
@@ -226,6 +232,7 @@ func RunUI() {
 			pb.SetText("Stopping...")
 			pb.SetEnabled(false)
 			tray.SetToolTip("WireGuard: Deactivating...")
+			tray.SetIcon(connectingLogoIcon)
 		case service.TunnelStopped, service.TunnelDeleting:
 			showRunningView(false)
 			if runningTunnel != nil {
@@ -236,6 +243,7 @@ func RunUI() {
 			pb.SetText("Start")
 			pb.SetEnabled(true)
 			tray.SetToolTip("WireGuard: Deactivated")
+			tray.SetIcon(disconnectedLogoIcon)
 			if showNotifications {
 				//TODO: ShowCustom with right icon
 				tray.ShowInfo("WireGuard Deactivated", fmt.Sprintf("The %s tunnel has been deactivated.", tunnel.Name))
