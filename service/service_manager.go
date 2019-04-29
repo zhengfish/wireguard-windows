@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.zx2c4.com/wireguard/windows/conf"
+	"golang.zx2c4.com/wireguard/tun/wintun"
 	"golang.zx2c4.com/wireguard/windows/ringlogger"
 	"log"
 	"os"
@@ -139,6 +140,38 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 
 	conf.RegisterStoreChangeCallback(func() { conf.MigrateUnencryptedConfigs() }) // Ignore return value for now, but could be useful later.
 	conf.RegisterStoreChangeCallback(IPCServerNotifyTunnelsChange)
+
+	var wt *wintun.Wintun
+
+	go func() {
+		var err error
+		// We early-initialize a Wintun adapter
+		wt, _, err = wintun.CreateInterface("WireGuard Tunnel Adapter", 0)
+		if err != nil {
+			log.Printf("Wintun creation: %v", err)
+			wt = nil
+			return
+		}
+		err = wt.SetInterfaceName("WireGuard")
+		if err != nil {
+			log.Printf("Wintun name setting: %v", err)
+			wt.DeleteInterface(0)
+			wt = nil
+			return
+		}
+		err = wt.FlushInterface()
+		if err != nil {
+			log.Printf("Wintun flushing: %v", err)
+			wt.DeleteInterface(0)
+			wt = nil
+			return
+		}
+	}()
+	defer func() {
+		if wt != nil {
+			wt.DeleteInterface(0)
+		}
+	}()
 
 	procs := make(map[uint32]*os.Process)
 	procsLock := sync.Mutex{}

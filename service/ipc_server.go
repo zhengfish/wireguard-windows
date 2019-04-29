@@ -71,7 +71,6 @@ func (s *ManagerService) RuntimeConfig(tunnelName string, config *conf.Config) e
 }
 
 func (s *ManagerService) Start(tunnelName string, unused *uintptr) error {
-	// For now, enforce only one tunnel at a time. Later we'll remove this silly restriction.
 	trackedTunnelsLock.Lock()
 	tt := make([]string, 0, len(trackedTunnels))
 	for t := range trackedTunnels {
@@ -80,6 +79,7 @@ func (s *ManagerService) Start(tunnelName string, unused *uintptr) error {
 	trackedTunnelsLock.Unlock()
 	for _, t := range tt {
 		s.Stop(t, unused)
+		s.WaitForStop(t, unused)
 	}
 
 	// After that process is started -- it's somewhat asynchronous -- we install the new one.

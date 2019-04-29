@@ -82,17 +82,11 @@ func (service *tunnelService) Execute(args []string, r <-chan svc.ChangeRequest,
 	logger.Info.Println("Starting wireguard-go version", device.WireGuardGoVersion)
 	logger.Debug.Println("Debug log enabled")
 
-	wintun, err := tun.CreateTUN(conf.Name)
+	wintun, err := tun.CreateTUNEx("WireGuard", false)
 	if err != nil {
 		serviceError = ErrorCreateWintun
 		return
 	}
-	realInterfaceName, err := wintun.Name()
-	if err != nil {
-		serviceError = ErrorDetermineWintunName
-		return
-	}
-	conf.Name = realInterfaceName
 
 	dev = device.NewDevice(wintun, logger)
 	dev.Up()
