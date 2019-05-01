@@ -35,6 +35,8 @@ const (
 	colorStarting        = 0xfec440
 	colorStarted         = 0x01a405
 	colorUpdateAvailable = 0xcb0110
+
+	drawScale = 32
 )
 
 func hexColor(c uint32) walk.Color {
@@ -228,7 +230,7 @@ func (tsip *IconProvider) drawUpdateAvailableImage(size int) (*walk.Bitmap, erro
 	}
 	defer updateAvailablePen.Dispose()
 
-	img, err := walk.NewBitmapWithTransparentPixels(walk.Size{size, size})
+	img, err := walk.NewBitmapWithTransparentPixels(walk.Size{size * drawScale, size * drawScale})
 	if err != nil {
 		return nil, err
 	}
@@ -238,24 +240,41 @@ func (tsip *IconProvider) drawUpdateAvailableImage(size int) (*walk.Bitmap, erro
 		img.Dispose()
 		return nil, err
 	}
-	defer canvas.Dispose()
 
 	// This should be scaled for DPI but instead we do the opposite, due to a walk bug.
 	margin := int(3.0 - (tsip.scale-1.0)*3.0)
 	if margin < 0 {
 		margin = 0
 	}
-	rect := walk.Rectangle{margin, margin, size - margin*2, size - margin*2}
+	rect := walk.Rectangle{margin * drawScale, margin * drawScale, drawScale * (size - margin*2), drawScale * (size - margin*2)}
 
 	if err := canvas.FillEllipse(updateAvailableBrush, rect); err != nil {
 		img.Dispose()
+		canvas.Dispose()
 		return nil, err
 	}
 	if err := canvas.DrawEllipse(updateAvailablePen, rect); err != nil {
 		img.Dispose()
+		canvas.Dispose()
 		return nil, err
 	}
-	return img, nil
+	canvas.Dispose()
+
+	imgScaled, err := walk.NewBitmapWithTransparentPixels(walk.Size{size, size})
+	if err != nil {
+		img.Dispose()
+		return nil, err
+	}
+	canvasScaled, err := walk.NewCanvasFromImage(imgScaled)
+	if err != nil {
+		img.Dispose()
+		imgScaled.Dispose()
+		return nil, err
+	}
+	canvasScaled.DrawImageStretched(img, walk.Rectangle{0, 0, size, size})
+	canvasScaled.Dispose()
+	img.Dispose()
+	return imgScaled, nil
 }
 
 func (tsip *IconProvider) ImageForTunnel(tunnel *service.Tunnel, size walk.Size) (*walk.Bitmap, error) {
@@ -317,8 +336,8 @@ func (tsip *IconProvider) IconWithOverlayForState(state service.TunnelState) (*w
 		return nil, err
 	}
 
-	w := int(float64(size.Width) * 0.75)
-	h := int(float64(size.Height) * 0.75)
+	w := size.Width * 3 / 4
+	h := size.Height * 3 / 4
 	margin := tsip.scaleForDPI(2)
 	bounds := walk.Rectangle{margin + size.Width - w, margin + size.Height - h, w, h}
 
@@ -367,19 +386,36 @@ func (tsip *IconProvider) PaintForState(state service.TunnelState, canvas *walk.
 		pen = tsip.startingPen
 	}
 
-	b := bounds
-
-	b.X += tsip.scaleForDPI(2)
-	b.Y += tsip.scaleForDPI(2)
-	b.Height -= tsip.scaleForDPI(4)
-	b.Width = b.Height
-
-	if err := canvas.FillEllipse(brush, b); err != nil {
+	imgScaledUp, err := walk.NewBitmapWithTransparentPixels(walk.Size{bounds.Width * drawScale, bounds.Height * drawScale})
+	if err != nil {
 		return err
 	}
-	if err := canvas.DrawEllipse(pen, b); err != nil {
+	canvasScaledUp, err := walk.NewCanvasFromImage(imgScaledUp)
+	if err != nil {
+		imgScaledUp.Dispose()
 		return err
 	}
 
+	boundsScaledUp := walk.Rectangle{}
+	boundsScaledUp.Height = (bounds.Height - tsip.scaleForDPI(4)) * drawScale
+	boundsScaledUp.Width = boundsScaledUp.Height
+	if err := canvasScaledUp.FillEllipse(brush, boundsScaledUp); err != nil {
+		canvasScaledUp.Dispose()
+		imgScaledUp.Dispose()
+		return err
+	}
+	if err := canvasScaledUp.DrawEllipse(pen, boundsScaledUp); err != nil {
+		canvasScaledUp.Dispose()
+		imgScaledUp.Dispose()
+		return err
+	}
+	canvasScaledUp.Dispose()
+
+	bounds.X += tsip.scaleForDPI(2)
+	bounds.Y += tsip.scaleForDPI(2)
+	bounds.Height -= tsip.scaleForDPI(4)
+	bounds.Width = bounds.Height
+	canvas.DrawImageStretched(imgScaledUp, bounds)
+	imgScaledUp.Dispose()
 	return nil
 }
