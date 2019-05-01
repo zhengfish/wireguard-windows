@@ -8,6 +8,8 @@ package ui
 import (
 	"archive/zip"
 	"fmt"
+	"github.com/lxn/win"
+	"golang.org/x/sys/windows"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -57,44 +59,44 @@ func NewTunnelsPage() (*TunnelsPage, error) {
 
 	// ToolBar actions
 	{
-		// HACK: Because of https://github.com/lxn/walk/issues/481
-		// we need to put the ToolBar into its own Composite.
-		toolBarContainer, _ := walk.NewComposite(tunnelsContainer)
+		toolbarContainer, _ := walk.NewComposite(tunnelsContainer)
 		hlayout := walk.NewHBoxLayout()
 		hlayout.SetMargins(walk.Margins{})
-		toolBarContainer.SetLayout(hlayout)
+		toolbarContainer.SetLayout(hlayout)
 
-		tunnelsToolBar, _ := walk.NewToolBarWithOrientationAndButtonStyle(toolBarContainer, walk.Horizontal, walk.ToolBarButtonTextOnly)
+		win.AddFontResourceEx(windows.StringToUTF16Ptr("C:\\Users\\Jason A. Donenfeld\\Desktop\\fontello.ttf"), win.FR_PRIVATE, nil)
+		font, _ := walk.NewFont("fontello", 10, 0)
 
+		addButton, _ := walk.NewSplitButton(toolbarContainer)
+		tp.AddDisposable(addButton)
+		addButton.SetText("\ue800")
+		addButton.SetFont(font)
+		addButton.SetMinMaxSize(walk.Size{80, 0}, walk.Size{80, 0})
+		addButton.Clicked().Attach(tp.onImport)
 		importAction := walk.NewAction()
 		importAction.SetText("Import tunnels from file...")
 		importAction.Triggered().Attach(tp.onImport)
-
 		addAction := walk.NewAction()
 		addAction.SetText("Add empty tunnel")
 		addAction.Triggered().Attach(tp.onAddTunnel)
+		addButton.Menu().Actions().Add(importAction)
+		addButton.Menu().Actions().Add(addAction)
 
-		exportTunnelsAction := walk.NewAction()
-		exportTunnelsAction.SetText("Export tunnels to zip...")
-		exportTunnelsAction.Triggered().Attach(tp.onExportTunnels)
+		removeButton, _ := walk.NewPushButton(toolbarContainer)
+		tp.AddDisposable(removeButton)
+		removeButton.SetText("\ue801")
+		removeButton.SetFont(font)
+		removeButton.SetMinMaxSize(walk.Size{50, 0}, walk.Size{50, 0})
+		removeButton.Clicked().Attach(tp.onDelete)
 
-		addMenu, _ := walk.NewMenu()
-		tp.AddDisposable(addMenu)
-		addMenu.Actions().Add(addAction)
-		addMenu.Actions().Add(importAction)
-		addMenuAction, _ := tunnelsToolBar.Actions().AddMenu(addMenu)
-		addMenuAction.SetText("➕")
+		exportButton, _ := walk.NewPushButton(toolbarContainer)
+		tp.AddDisposable(exportButton)
+		exportButton.SetText("\ue802")
+		exportButton.SetFont(font)
+		exportButton.SetMinMaxSize(walk.Size{50, 0}, walk.Size{50, 0})
+		exportButton.Clicked().Attach(tp.onExportTunnels)
 
-		deleteAction := walk.NewAction()
-		tunnelsToolBar.Actions().Add(deleteAction)
-		deleteAction.SetText("➖")
-		deleteAction.Triggered().Attach(tp.onDelete)
-
-		settingsMenu, _ := walk.NewMenu()
-		tp.AddDisposable(settingsMenu)
-		settingsMenu.Actions().Add(exportTunnelsAction)
-		settingsMenuAction, _ := tunnelsToolBar.Actions().AddMenu(settingsMenu)
-		settingsMenuAction.SetText("⚙")
+		walk.NewHSpacer(toolbarContainer)
 	}
 
 	currentTunnelContainer, _ := walk.NewComposite(tp)
