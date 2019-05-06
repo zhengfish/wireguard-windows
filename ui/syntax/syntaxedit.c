@@ -33,26 +33,26 @@ struct span_style {
 };
 
 static const struct span_style stylemap[] = {
-	[HighlightSection] = { .color = RGB(0x32, 0x6D, 0x74), .effects = CFE_BOLD },
-	[HighlightField] = { .color = RGB(0x9B, 0x23, 0x93), .effects = CFE_BOLD },
-	[HighlightPrivateKey] = { .color = RGB(0x64, 0x38, 0x20) },
-	[HighlightPublicKey] = { .color = RGB(0x64, 0x38, 0x20) },
-	[HighlightPresharedKey] = { .color = RGB(0x64, 0x38, 0x20) },
-	[HighlightIP] = { .color = RGB(0x0E, 0x0E, 0xFF) },
-	[HighlightCidr] = { .color = RGB(0x81, 0x5F, 0x03) },
-	[HighlightHost] = { .color = RGB(0x0E, 0x0E, 0xFF) },
-	[HighlightPort] = { .color = RGB(0x81, 0x5F, 0x03) },
-	[HighlightMTU] = { .color = RGB(0x1C, 0x00, 0xCF) },
-	[HighlightKeepalive] = { .color = RGB(0x1C, 0x00, 0xCF) },
-	[HighlightComment] = { .color = RGB(0x53, 0x65, 0x79), .effects = CFE_ITALIC },
-	[HighlightDelimiter] = { .color = RGB(0x00, 0x00, 0x00) },
+	[HighlightSection]      = { .color = RGB(0xA3, 0x15, 0x15), .effects = CFE_BOLD },
+	[HighlightField]        = { .color = RGB(0xC2, 0x25, 0x84), .effects = CFE_BOLD },
+	[HighlightPrivateKey]   = { .color = RGB(0x00, 0x00, 0xFF) },
+	[HighlightPublicKey]    = { .color = RGB(0x00, 0x00, 0xFF) },
+	[HighlightPresharedKey] = { .color = RGB(0x00, 0x00, 0xFF) },
+	[HighlightIP]           = { .color = RGB(0x00, 0x00, 0x00) },
+	[HighlightCidr]         = { .color = RGB(0x00, 0x00, 0xFF) },
+	[HighlightHost]         = { .color = RGB(0xA3, 0x15, 0x15) },
+	[HighlightPort]         = { .color = RGB(0x00, 0x00, 0xFF) },
+	[HighlightMTU]          = { .color = RGB(0x00, 0x00, 0xFF) },
+	[HighlightKeepalive]    = { .color = RGB(0x00, 0x00, 0xFF) },
+	[HighlightComment]      = { .color = RGB(0x00, 0x80, 0x00), .effects = CFE_ITALIC },
+	[HighlightDelimiter]    = { .color = RGB(0x00, 0x00, 0x00) },
 #ifndef MOBILE_WGQUICK_SUBSET
-	[HighlightTable] = { .color = RGB(0x1C, 0x00, 0xCF) },
-	[HighlightFwMark] = { .color = RGB(0x1C, 0x00, 0xCF) },
-	[HighlightSaveConfig] = { .color = RGB(0x81, 0x5F, 0x03) },
-	[HighlightCmd] = { .color = RGB(0x63, 0x75, 0x89) },
+	[HighlightTable]        = { .color = RGB(0x00, 0x00, 0xFF) },
+	[HighlightFwMark]       = { .color = RGB(0x00, 0x00, 0xFF) },
+	[HighlightSaveConfig]   = { .color = RGB(0x00, 0x00, 0xFF) },
+	[HighlightCmd]          = { .color = RGB(0x00, 0x00, 0xFF) },
 #endif
-	[HighlightError] = { .color = RGB(0xC4, 0x1A, 0x16), .effects = CFE_UNDERLINE }
+	[HighlightError]        = { .color = RGB(0xF0, 0x00, 0x00), .effects = CFE_UNDERLINE }
 };
 
 static void evaluate_untunneled_blocking(struct syntaxedit_data *this, HWND hWnd, const char *msg, struct highlight_span *spans)
