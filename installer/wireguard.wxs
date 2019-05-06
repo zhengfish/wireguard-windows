@@ -6,8 +6,10 @@
 -->
 <?if $(var.Platform) = x86?>
 	<?define PlatformProgramFilesFolder = "ProgramFilesFolder"?>
+	<?define PlatformSystemFolder = "SystemFolder"?>
 <?else?>
 	<?define PlatformProgramFilesFolder = "ProgramFiles64Folder"?>
+	<?define PlatformSystemFolder = "System64Folder"?>
 <?endif?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
 	<Product
@@ -66,6 +68,19 @@
 			<Directory Id="$(var.PlatformProgramFilesFolder)">
 				<Directory Id="INSTALLFOLDER" Name="WireGuard"/>
 			</Directory>
+			<Directory Id="$(var.PlatformSystemFolder)">
+				<Directory Id="SystemConfigFolder" Name="config">
+					<Directory Id="SystemProfileFolder" Name="systemprofile">
+						<Directory Id="SystemProfileAppDataFolder" Name="AppData">
+							<Directory Id="SystemProfileLocalAppDataFolder" Name="Local">
+								<Directory Id="WireGuardFolder" Name="WireGuard">
+									<Directory Id="WireGuardConfigFolder" Name="Configurations"/>
+								</Directory>
+							</Directory>
+						</Directory>
+					</Directory>
+				</Directory>
+			</Directory>
 			<Directory Id="ProgramMenuFolder"/>
 		</Directory>
 
@@ -78,6 +93,10 @@
 					<Shortcut Id="WireGuardStartMenuShortcut" Directory="ProgramMenuFolder" Name="WireGuard" Description="WireGuard: Fast, Modern, Secure VPN Tunnel" WorkingDirectory="INSTALLFOLDER" Advertise="yes" />
 				</File>
 				<ServiceControl Id="DummyService.3AA0C492_29F4_4342_B608_DB95B2DECB13" Name="DummyService.3AA0C492_29F4_4342_B608_DB95B2DECB13"></ServiceControl><!-- A dummy to make WiX create ServiceControl table for us. -->
+
+				<!-- TODO: Why isn't MSI removing those files? -->
+				<RemoveFile Id="WireGuardLog" Directory="WireGuardFolder" Name="log.bin" On="uninstall"/>
+				<RemoveFile Id="WireGuardConfigurations" Directory="WireGuardConfigFolder" Name="*.conf.dpapi" On="uninstall"/>
 			</Component>
 		</ComponentGroup>
 
@@ -115,7 +134,6 @@
 			<Custom Action="LaunchApplication" After="PublishProduct">NOT Installed</Custom>
 		</InstallExecuteSequence>
 
-		<!-- TODO: On uninstall remove system32\config\wireguard. -->
 		<!-- TODO: On install and uninstall, kill services. -->
 	</Product>
 </Wix>
