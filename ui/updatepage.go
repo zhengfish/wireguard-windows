@@ -34,23 +34,32 @@ func NewUpdatePage() (*UpdatePage, error) {
 	//TODO: make title bold
 	up.SetLayout(walk.NewVBoxLayout())
 
-	instructions, _ := walk.NewTextLabel(up)
+	composite, _ := walk.NewComposite(up)
+	composite.SetLayout(walk.NewHBoxLayout())
+
+	iv, _ := walk.NewImageView(composite)
+	iv.SetImage(iconProvider.wireguardIcon)
+	iv.SetAlignment(walk.AlignHNearVCenter)
+	iv.SetMinMaxSize(walk.Size{1, 1}, walk.Size{0, 0})
+
+	instructions, _ := walk.NewTextLabel(composite)
 	instructions.SetText("An update to WireGuard is available. It is highly advisable to update without delay.")
-	instructions.SetMinMaxSize(walk.Size{1, 0}, walk.Size{0, 0})
+	instructions.SetTextAlignment(walk.AlignHNearVCenter)
+
+	walk.NewHSpacer(composite)
 
 	status, _ := walk.NewTextLabel(up)
-	status.SetText("Status: Waiting for user")
 	status.SetMinMaxSize(walk.Size{1, 0}, walk.Size{0, 0})
 
 	bar, _ := walk.NewProgressBar(up)
 	bar.SetVisible(false)
 
+	walk.NewVSpacer(up)
+
 	button, _ := walk.NewPushButton(up)
 	updateIcon, _ := loadSystemIcon("shell32", 46)
 	button.SetImage(updateIcon) //TODO: the placement of this looks sort of weird
 	button.SetText("Update Now")
-
-	walk.NewVSpacer(up)
 
 	switchToUpdatingState := func() {
 		if !bar.Visible() {
