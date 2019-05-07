@@ -14,6 +14,26 @@ function logMessage(msg) {
 	Session.Message(0x04000000, record);
 }
 
+var quotePathStatic = null;
+function quotePath(str) {
+	if (!quotePathStatic)
+		quotePathStatic = {
+			"reReserved" : new RegExp("[<>\"|]", "g")
+		};
+
+	if (str == null) return null;
+	switch (typeof(str)) {
+		case "string":    break;
+		case "undefined": return null;
+		default:          try { str = str.toString(); } catch (e) { return null; }
+	}
+
+	if (str.match(quotePathStatic.reReserved))
+		throw new Error("Path " + str + " contains reserved characters");
+	
+	return "\"" + str + "\"";
+}
+
 // I'd rather use wsh.Exec, so that we can just do ".Stdout.ReadAll()", but
 // this results in a scary flashing command window. The below is the best
 // workaround we can find yet. We'll keep searching for more clever tricks.
@@ -21,8 +41,7 @@ function runWithNoWindowFlash(command) {
 	//TODO: Seems pretty unlikely that this temp file is secure...
 	var tmpfile = fso.BuildPath(fso.GetSpecialFolder(2), fso.GetTempName());
 	try {
-		//TODO: Obviously cmd and tmpfile are unescaped here...
-		var cmd = fso.BuildPath(fso.GetSpecialFolder(1), "cmd.exe") + " /c " + command + " > " + tmpfile;
+		var cmd = quotePath(fso.BuildPath(fso.GetSpecialFolder(1), "cmd.exe")) + " /c " + command + " > " + quotePath(tmpfile);
 		var ret = wsh.Run(cmd, 0, true);
 		if (ret != 0) {
 			logMessage("Command " + cmd + " exited with error " + ret.toString());
@@ -77,7 +96,7 @@ function EvaluateWireGuardServices() {
 
 	insertServiceControl("WireGuardManager");
 
-	var txt = runWithNoWindowFlash(fso.BuildPath(fso.GetSpecialFolder(1), "reg.exe") + " query \"" + serviceKey + "\"");
+	var txt = runWithNoWindowFlash(quotePath(fso.BuildPath(fso.GetSpecialFolder(1), "reg.exe")) + " query " + quotePath(serviceKey));
 	var lines = txt.split(new RegExp("\r?\n", "g"));
 	for (var i = 0; i < lines.length; ++i) {
 		if (lines[i].length > serviceKeyPrefix.length && lines[i].substring(0, serviceKeyPrefix.length) == serviceKeyPrefix) {
