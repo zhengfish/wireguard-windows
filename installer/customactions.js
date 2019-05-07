@@ -14,23 +14,9 @@ function logMessage(msg) {
 	Session.Message(0x04000000, record);
 }
 
-var quotePathStatic = null;
 function quotePath(str) {
-	if (!quotePathStatic)
-		quotePathStatic = {
-			"reReserved" : new RegExp("[<>\"|]", "g")
-		};
-
-	if (str == null) return null;
-	switch (typeof(str)) {
-		case "string":    break;
-		case "undefined": return null;
-		default:          try { str = str.toString(); } catch (e) { return null; }
-	}
-
-	if (str.match(quotePathStatic.reReserved))
+	if (str.match("[<>\"|]", "g"))
 		throw new Error("Path " + str + " contains reserved characters");
-	
 	return "\"" + str + "\"";
 }
 
@@ -41,6 +27,7 @@ function runWithNoWindowFlash(command) {
 	//TODO: Seems pretty unlikely that this temp file is secure...
 	var tmpfile = fso.BuildPath(fso.GetSpecialFolder(2), fso.GetTempName());
 	try {
+		//TODO: command is unescaped here, but it doesn't matter for our usage hopefully.
 		var cmd = quotePath(fso.BuildPath(fso.GetSpecialFolder(1), "cmd.exe")) + " /c " + command + " > " + quotePath(tmpfile);
 		var ret = wsh.Run(cmd, 0, true);
 		if (ret != 0) {
