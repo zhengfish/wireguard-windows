@@ -85,45 +85,41 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 		}
 		defer userToken.Close()
 		if !tokenIsMemberOfBuiltInAdministrator(userToken) {
-			return
+			log.Println("Not a member of built in admins! Herp derp!")
 		}
 		user, err := userToken.GetTokenUser()
 		if err != nil {
 			log.Printf("Unable to lookup user from token: %v", err)
-			return
-		}
-		username, domain, accType, err := user.User.Sid.LookupAccount("")
-		if err != nil {
-			log.Printf("Unable to lookup username from sid: %v", err)
-			return
-		}
-		if accType != windows.SidTypeUser {
-			return
+		} else {
+			username, domain, _, err := user.User.Sid.LookupAccount("")
+			if err != nil {
+				log.Printf("Unable to lookup username from sid: %v", err)
+			} else {
+				log.Printf("Starting UI process for user: '%s@%s'", username, domain)
+			}
 		}
 		env, err := userEnviron(userToken)
 		if err != nil {
 			log.Printf("Unable to determine user environment: %v", err)
-			return
 		}
 		userTokenInfo := &UserTokenInfo{}
 		userTokenInfo.elevatedToken, err = getElevatedToken(userToken)
 		if err != nil {
 			log.Printf("Unable to elevate token: %v", err)
-			return
 		}
-		if userTokenInfo.elevatedToken != userToken {
+		if err == nil && userTokenInfo.elevatedToken != userToken {
 			defer userTokenInfo.elevatedToken.Close()
 		}
-		userTokenInfo.elevatedEnvironment, err = userEnviron(userTokenInfo.elevatedToken)
-		if err != nil {
-			log.Printf("Unable to determine elevated environment: %v", err)
-			return
+		if userTokenInfo.elevatedToken != 0 {
+			userTokenInfo.elevatedEnvironment, err = userEnviron(userTokenInfo.elevatedToken)
+			if err != nil {
+				log.Printf("Unable to determine elevated environment: %v", err)
+			}
 		}
 		currentProcess, _ := windows.GetCurrentProcess()
-		securityAttributes, err := getSecurityAttributes(windows.Token(currentProcess), userToken)
+		_, err = getSecurityAttributes(windows.Token(currentProcess), userToken)
 		if err != nil {
 			log.Printf("Unable to extract security attributes from manager token and combine them with SID from user token: %v", err)
-			return
 		}
 		for {
 			if stoppingManager {
@@ -151,16 +147,14 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 				return
 			}
 
-			log.Printf("Starting UI process for user: '%s@%s'", username, domain)
 			attr := &os.ProcAttr{
 				Sys: &syscall.SysProcAttr{
 					Token:             syscall.Token(userToken),
-					ProcessAttributes: sliceToSecurityAttributes(securityAttributes),
-					ThreadAttributes:  sliceToSecurityAttributes(securityAttributes),
 				},
 				Files: []*os.File{devNull, devNull, devNull},
 				Env:   env,
 			}
+			log.Println("Doing the needful")
 			proc, err := os.StartProcess(path, []string{path, "/ui", theirReaderStr, theirWriterStr, theirEventStr, theirLogMapping}, attr)
 			theirReader.Close()
 			theirWriter.Close()
@@ -175,7 +169,12 @@ func (service *managerService) Execute(args []string, r <-chan svc.ChangeRequest
 			procsLock.Lock()
 			procs[session] = proc
 			procsLock.Unlock()
-			proc.Wait()
+			status, err := proc.Wait()
+			if err != nil {
+				log.Printf("Waiting gave error: %v", err)
+			} else {
+				log.Printf("Status is %v - code %d", status, status.ExitCode())
+			}
 			procsLock.Lock()
 			delete(procs, session)
 			procsLock.Unlock()
