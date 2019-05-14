@@ -18,6 +18,32 @@ import (
 	"github.com/lxn/win"
 )
 
+// #include <windows.h>
+//
+// extern void runSynchronized(void);
+//
+// static int message_loop(uintptr_t handle_ptr)
+// {
+//     HANDLE *hwnd = (HANDLE *)handle_ptr;
+//     MSG m;
+//     int r;
+//
+//     while (*hwnd) {
+//         r = GetMessage(&m, NULL, 0, 0);
+//         if (!r)
+//             return m.wParam;
+//         else if (r < 0)
+//             return -1;
+//         if (!IsDialogMessage(*hwnd, &m)) {
+//             TranslateMessage(&m);
+//             DispatchMessage(&m);
+//         }
+//         runSynchronized();
+//     }
+//     return 0;
+// }
+import "C"
+
 type CloseReason byte
 
 const (
@@ -46,6 +72,7 @@ func synchronize(f func()) {
 	syncFuncs.m.Unlock()
 }
 
+//export runSynchronized
 func runSynchronized() {
 	// Clear the list of callbacks first to avoid deadlock
 	// if a callback itself calls Synchronize()...
@@ -407,27 +434,7 @@ func (fb *FormBase) Run() int {
 		}
 	}
 
-	msg := (*win.MSG)(unsafe.Pointer(win.GlobalAlloc(0, unsafe.Sizeof(win.MSG{}))))
-	defer win.GlobalFree(win.HGLOBAL(unsafe.Pointer(msg)))
-
-	for fb.hWnd != 0 {
-		switch win.GetMessage(msg, 0, 0, 0) {
-		case 0:
-			return int(msg.WParam)
-
-		case -1:
-			return -1
-		}
-
-		if !win.IsDialogMessage(fb.hWnd, msg) {
-			win.TranslateMessage(msg)
-			win.DispatchMessage(msg)
-		}
-
-		runSynchronized()
-	}
-
-	return 0
+	return int(C.message_loop(C.uintptr_t(uintptr(unsafe.Pointer(&fb.hWnd)))))
 }
 
 func (fb *FormBase) Starting() *Event {
